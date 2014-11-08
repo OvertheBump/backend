@@ -111,15 +111,19 @@ class Jawbone(object):
 	return self.access_token(self, refresh_code, 'refresh_token')
 
 
+
 class User(object):
+    """
+    Cleans and parses Jawbone user data
+    """
 
     def __init__(self, jb, token):
-        self.jb=jb
+        self.jb=jb 
         self.token=token
 
+    """Gets sleep time and quality"""
     def get_sleep(self, date):
         try:
-            
             sleeps=self.jb.api_call(self.token,'nudge/api/v.1.1/users/@me/sleeps?date=%s' % (date,))
             #temp hardcode
             # sleeps='{"meta": {"user_xid": "jMDIUvE60fnyHaEr3G95jA", "message": "OK", "code": 200, "time": 1415463187}, "data": {"items": [{"time_updated": 1415456257, "xid": "h8iv2zDE1c7QOkPpj10tQAgdbkITrCyx", "title": "for 8h 22m", "time_created": 1415422395, "time_completed": 1415455901, "details": {"body": 0, "sound": 11320, "smart_alarm_fire": 0, "awakenings": 2, "light": 18811, "mind": 0, "asleep_time": 1415424119, "awake_time": 1415455800, "awake": 3375, "rem": 0, "duration": 33506, "tz": "America/New_York", "quality": 88, "sunset": 0, "sunrise": 0}, "date": 20141108, "shared": true, "sub_type": 0}], "size": 1}}'
@@ -135,6 +139,7 @@ class User(object):
         except:
             return {'error':'No data available for given date'}
 
+    """Gets step amount, distance, active/inactive time, and workout amount"""
     def get_step(self,date):
         # today=str(datetime.today().date())
         # today=''.join([x for x in today if x!='-'])
@@ -155,6 +160,7 @@ class User(object):
         except:
             return {'error':'No data available for given date'}
 
+    """Gets mood data"""
     def get_mood(self,date):
         try:
             mood=self.jb.api_call(self.token,'nudge/api/v.1.1/users/@me/mood?date=%s' %(date,))
@@ -162,6 +168,7 @@ class User(object):
         except:
             return {'error':'No data available for given data'}
 
+    """Returns 1 if User has not met step goal, 0 if they have, and -1 if not enough user data exists"""
     def is_step_risk(self,step_goal,step_dict):
         print step_dict
         if 'error' not in step_dict:
@@ -170,6 +177,7 @@ class User(object):
             return 0 #good step
         return -1 #error
 
+    """Returns 1 if User has not met sleep goal, 0 if they have, and -1 if not enough user data exists"""
     def is_sleep_risk(self,sleep_goal,sleep_dict):
         print sleep_dict
         if 'error' not in sleep_dict:
@@ -178,6 +186,7 @@ class User(object):
             return 0 #good sleep
         return -1 #error
 
+    """Returns 1 if User has a bad mood, 0 if they have, and -1 if not enough user data exists"""
     def is_mood_risk(self,mood_dict):
         print mood_dict
         if 'error' not in mood_dict:
@@ -186,6 +195,7 @@ class User(object):
             return 0 #good mood
         return -1 #error
 
+    """Returns 1 if User has not worked out, 0 if they have, and -1 if not enough user data exists"""
     def is_wo_risk(self,step_dict):
         print step_dict
         if 'error' not in step_dict:
@@ -194,6 +204,7 @@ class User(object):
             return 0 #good workout
         return -1 #error
 
+    """Returns number of continuous days a User has step risk"""
     def calc_step_risk(self,step_goal):
         day=0
         counter=0
@@ -210,6 +221,7 @@ class User(object):
                 break
         return counter
 
+    """Returns number of continuous days a User has sleep risk"""
     def calc_sleep_risk(self,sleep_goal):
         day=0
         counter=0
@@ -226,6 +238,7 @@ class User(object):
                 break
         return counter
 
+    """Returns number of continuous days a User has mood risk"""
     def calc_mood_risk(self):
         day=0
         counter=0
@@ -242,6 +255,7 @@ class User(object):
                 break
         return counter
 
+    """Returns number of continuous days a User has workout risk"""
     def calc_wo_risk(self):
         day=0
         counter=0
@@ -258,35 +272,32 @@ class User(object):
                 break
         return counter
 
+    """Returns JSON object of days a User has step, sleep, mood, or workout risk"""
     def is_at_risk(self):
         #initialize goals
-        goals=jb.api_call(self.token,'nudge/api/v.1.1/users/@me/goals')
+        goals=self.jb.api_call(self.token,'nudge/api/v.1.1/users/@me/goals')
         step_goal=int(goals['data']['move_steps'])
         sleep_goal=float(goals['data']['sleep_total'])/60 #convert seconds to minutes
 
-        step_risk=self.calc_step_risk(step_goal)
-        sleep_risk=self.calc_sleep_risk(sleep_goal)
-        mood_risk=self.calc_mood_risk()
-        wo_risk=self.calc_wo_risk()
-
-        return {'step_risk':step_risk, 'sleep_risk':sleep_risk, 'mood_risk':mood_risk, 'wo_risk':wo_risk}
+        return json.dumps({'step_risk':self.calc_step_risk(step_goal), 
+        'sleep_risk':self.calc_sleep_risk(sleep_goal), 
+        'mood_risk':self.calc_mood_risk(), 
+        'wo_risk':self.calc_wo_risk()},sort_keys=True)
 
 
-client_id='VGjzSWhr3cs'
-app_secret='9c46a1652607f7c155b07be591c618ce2aabfbaf'
-uri='https://github.com/lilsplat'
-code='mGKV_178jYxCP7r8M73hHJvZP2XktZiQfRMilxuDI9MHumXZXKCFwuCvAXd5iIEzyerH6h6H0l2-fL7a4wREe4eyzy0s7TLyCQDfEZZgjGTOLvajaxYQwcW1fdbp9foj6RAMOemI2tMGYI8mYAm0mtcq6EHVgu59Babuxo4_GDzk8lNHm2EhXb6d0YtmpUQ2'
+# client_id='VGjzSWhr3cs'
+# app_secret='9c46a1652607f7c155b07be591c618ce2aabfbaf'
+# uri='https://github.com/lilsplat'
+# code='mGKV_178jYxCP7r8M73hHJvZP2XktZiQOeyEZS9grNUHumXZXKCFwuCvAXd5iIEzyerH6h6H0l2-fL7a4wREe4eyzy0s7TLyCQDfEZZgjGTOLvajaxYQwcW1fdbp9foj6RAMOemI2tMGYI8mYAm0mtcq6EHVgu59Babuxo4_GDzk8lNHm2EhXb6d0YtmpUQ2'
 
+# jb = Jawbone(client_id, app_secret, uri, scope='basic_read extended_read sleep_read meal_read mood_read move_read')
+# # print jb.auth()
+# token = jb.access_token(code)
+# # print jb.api_call(token['access_token'],'nudge/api/v.1.1/users/@me/goals')
 
-jb = Jawbone(client_id, app_secret, uri, scope='basic_read extended_read sleep_read meal_read mood_read move_read')
-# print jb.auth()
-token = jb.access_token(code)
-print type(token)
-# print jb.api_call(token['access_token'],'nudge/api/v.1.1/users/@me/goals')
-
-tester=User(jb,token['access_token'])
+# tester=User(jb,token['access_token'])
+# # print tester.is_at_risk()
 # print tester.is_at_risk()
-print tester.is_at_risk()
 
 
 
