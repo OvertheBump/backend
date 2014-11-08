@@ -237,6 +237,7 @@ class User(object):
             #test for risk
             if self.is_mood_risk(self.get_mood(today_str)) == 1:
                 counter+=1
+                day+=1
             else:
                 break
         return counter
@@ -252,6 +253,7 @@ class User(object):
             #test for risk
             if self.is_wo_risk(self.get_step(today_str)) == 1:
                 counter+=1
+                day+=1
             else:
                 break
         return counter
