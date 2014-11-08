@@ -1,8 +1,7 @@
 import urllib
 import requests
 import json
-from datetime import *
-import time
+from datetime import date,timedelta, datetime, time
 
 class Jawbone(object):
     """
@@ -120,8 +119,7 @@ class User(object):
 
     def get_sleep(self, date):
         try:
-            # today=str(datetime.today().date())
-            # today=''.join([x for x in today if x!='-'])
+            
             sleeps=self.jb.api_call(self.token,'nudge/api/v.1.1/users/@me/sleeps?date=%s' % (date,))
             #temp hardcode
             # sleeps='{"meta": {"user_xid": "jMDIUvE60fnyHaEr3G95jA", "message": "OK", "code": 200, "time": 1415463187}, "data": {"items": [{"time_updated": 1415456257, "xid": "h8iv2zDE1c7QOkPpj10tQAgdbkITrCyx", "title": "for 8h 22m", "time_created": 1415422395, "time_completed": 1415455901, "details": {"body": 0, "sound": 11320, "smart_alarm_fire": 0, "awakenings": 2, "light": 18811, "mind": 0, "asleep_time": 1415424119, "awake_time": 1415455800, "awake": 3375, "rem": 0, "duration": 33506, "tz": "America/New_York", "quality": 88, "sunset": 0, "sunrise": 0}, "date": 20141108, "shared": true, "sub_type": 0}], "size": 1}}'
@@ -130,9 +128,10 @@ class User(object):
             details=sleeps['data']['items'][0]['details']
             hour=int(title[4:].split(' ')[0][:-1])
             minutes=int(title[4:].split(' ')[1][:-1])
+            time=hour*60 + minutes
             quality=int(details['quality'])
 
-            return {'date':date, 'hour':hour, 'minutes':minutes, 'quality':quality}
+            return {'date':date, 'time':time, 'quality':quality}
         except:
             return {'error':'No data available for given date'}
 
@@ -156,26 +155,136 @@ class User(object):
         except:
             return {'error':'No data available for given date'}
 
-    def is_sleep_risk(self):
-        # print 'determines if theyre at sleep risk'
+    def get_mood(self,date):
+        try:
+            mood=self.jb.api_call(self.token,'nudge/api/v.1.1/users/@me/mood?date=%s' %(date,))
+            return {'mood':int(mood['data']['sub_type'])}
+        except:
+            return {'error':'No data available for given data'}
 
-    def is_step_risk(self):
-        print 'determines if at step risk'
+    def is_step_risk(self,step_goal,step_dict):
+        print step_dict
+        if 'error' not in step_dict:
+            if step_dict['steps']<step_goal:
+                return 1 #bad step
+            return 0 #good step
+        return -1 #error
+
+    def is_sleep_risk(self,sleep_goal,sleep_dict):
+        print sleep_dict
+        if 'error' not in sleep_dict:
+            if sleep_dict['time']<sleep_goal or sleep_dict['quality']<50:
+                return 1 #bad sleep
+            return 0 #good sleep
+        return -1 #error
+
+    def is_mood_risk(self,mood_dict):
+        print mood_dict
+        if 'error' not in mood_dict:
+            if mood_dict['mood'] >=5 and mood_dict['mood']<=7:
+                return 1 #bad mood
+            return 0 #good mood
+        return -1 #error
+
+    def is_wo_risk(self,step_dict):
+        print step_dict
+        if 'error' not in step_dict:
+            if step_dict['workout_time']==0:
+                return 1 #bad workout
+            return 0 #good workout
+        return -1 #error
+
+    def calc_step_risk(self,step_goal):
+        day=0
+        counter=0
+        today=date.today()
+        while day<7:
+            #get yesterday
+            today=today-timedelta(1)
+            today_str=int('20'+today.strftime('%y%m%d'))
+            #test for risk
+            if self.is_step_risk(step_goal,self.get_step(today_str)) == 1:
+                counter+=1
+                day+=1
+            else:
+                break
+        return counter
+
+    def calc_sleep_risk(self,sleep_goal):
+        day=0
+        counter=0
+        today=date.today()+timedelta(1)
+        while day<7:
+            #get yesterday
+            today=today-timedelta(1)
+            today_str=int('20'+today.strftime('%y%m%d'))
+            #test for risk
+            if self.is_sleep_risk(sleep_goal,self.get_sleep(today_str)) == 1:
+                counter+=1
+                day+=1
+            else:
+                break
+        return counter
+
+    def calc_mood_risk(self):
+        day=0
+        counter=0
+        today=date.today()
+        while day<7:
+            #get yesterday
+            today=today-timedelta(1)
+            today_str=int('20'+today.strftime('%y%m%d'))
+            #test for risk
+            if self.is_mood_risk(self.get_mood(today_str)) == 1:
+                counter+=1
+            else:
+                break
+        return counter
+
+    def calc_wo_risk(self):
+        day=0
+        counter=0
+        today=date.today()
+        while day<7:
+            #get yesterday
+            today=today-timedelta(1)
+            today_str=int('20'+today.strftime('%y%m%d'))
+            #test for risk
+            if self.is_wo_risk(self.get_step(today_str)) == 1:
+                counter+=1
+            else:
+                break
+        return counter
+
+    def is_at_risk(self):
+        #initialize goals
+        goals=jb.api_call(self.token,'nudge/api/v.1.1/users/@me/goals')
+        step_goal=int(goals['data']['move_steps'])
+        sleep_goal=float(goals['data']['sleep_total'])/60 #convert seconds to minutes
+
+        step_risk=self.calc_step_risk(step_goal)
+        sleep_risk=self.calc_sleep_risk(sleep_goal)
+        mood_risk=self.calc_mood_risk()
+        wo_risk=self.calc_wo_risk()
+
+        return {'step_risk':step_risk, 'sleep_risk':sleep_risk, 'mood_risk':mood_risk, 'wo_risk':wo_risk}
 
 
 client_id='VGjzSWhr3cs'
 app_secret='9c46a1652607f7c155b07be591c618ce2aabfbaf'
 uri='https://github.com/lilsplat'
-code='mGKV_178jYxCP7r8M73hHJvZP2XktZiQb2xhklBKsBYHumXZXKCFwuCvAXd5iIEzyerH6h6H0l2-fL7a4wREe4eyzy0s7TLyCQDfEZZgjGTOLvajaxYQwcW1fdbp9foj6RAMOemI2tMGYI8mYAm0mtcq6EHVgu59Babuxo4_GDzk8lNHm2EhXb6d0YtmpUQ2'
+code='mGKV_178jYxCP7r8M73hHJvZP2XktZiQfRMilxuDI9MHumXZXKCFwuCvAXd5iIEzyerH6h6H0l2-fL7a4wREe4eyzy0s7TLyCQDfEZZgjGTOLvajaxYQwcW1fdbp9foj6RAMOemI2tMGYI8mYAm0mtcq6EHVgu59Babuxo4_GDzk8lNHm2EhXb6d0YtmpUQ2'
+
 
 jb = Jawbone(client_id, app_secret, uri, scope='basic_read extended_read sleep_read meal_read mood_read move_read')
 # print jb.auth()
 token = jb.access_token(code)
 print type(token)
-print jb.api_call(token['access_token'],'nudge/api/v.1.1/users/@me/sleeps')
+# print jb.api_call(token['access_token'],'nudge/api/v.1.1/users/@me/goals')
 
 tester=User(jb,token['access_token'])
-print tester.get_step('20141107')
+# print tester.is_at_risk()
+print tester.is_at_risk()
 
-# print jb_extended.api_call(token,'nudge/api/v.1.1/users/@me/timezone')
+
 
